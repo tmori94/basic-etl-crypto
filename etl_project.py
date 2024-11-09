@@ -3,11 +3,20 @@ import pandas as pd
 import sqlite3
 
 def extract_data():
-    url = 'https://api.coingecko.com/api/v3/coins/markets'
-    params = {'vs_currency': 'usd', 'order': 'market_cap_desc', 'per_page': 10, 'page': 1}
-    response = requests.get(url, params=params)
-    data = response.json()
-    return data
+    try:
+        url = 'https://api.coingecko.com/api/v3/coins/markets'
+        params = {'vs_currency': 'usd', 'order': 'market_cap_desc', 'per_page': 10, 'page': 1}
+        response = requests.get(url, params=params)
+        
+        # Verify if the response is positive (status code 200)
+        response.raise_for_status()  # Exception if the response is not 200
+        
+        data = response.json()
+        return data
+    except requests.exceptions.RequestException as e:
+        # Manage all the requests in error (timeout, network issue, 404,etc.
+        print(f"Error during the API request: {e}")
+        return []
 
 def transform_data(data):
     df = pd.DataFrame(data)
