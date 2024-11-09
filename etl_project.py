@@ -32,17 +32,26 @@ def transform_data(data):
         return pd.DataFrame()  # Return an empty dataframe
 
 def load_data(df):
-    conn = sqlite3.connect('crypto_data.db')
-    df.to_sql('cryptos', conn, if_exists='replace', index=False)
-    conn.close()
+    try:
+        if df.empty:
+            raise ValueError("No data to load in the database.")
+        
+        conn = sqlite3.connect('crypto_data.db')
+        df.to_sql('cryptos', conn, if_exists='replace', index=False)
+        conn.close()
+    except sqlite3.Error as e:
+        # Manage DB errors
+        print(f"Error during the upload of data in the DB: {e}")
+    except ValueError as e:
+        print(f"Error found in the data to be loaded: {e}")
 
 def verify_data():
-    # Connessione al database
+    # Connecting to the DB
     conn = sqlite3.connect('crypto_data.db')
-    query = 'SELECT * FROM cryptos LIMIT 5'  # Seleziona le prime 5 righe
+    query = 'SELECT * FROM cryptos LIMIT 5'  # Selecting only the first 5 rows
     result = pd.read_sql(query, conn)
     conn.close()
-    # Visualizza i primi 5 record
+    # Show the first 5 records
     print(result)
 
 def etl_process():
