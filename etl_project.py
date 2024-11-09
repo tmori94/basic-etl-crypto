@@ -19,10 +19,17 @@ def extract_data():
         return []
 
 def transform_data(data):
-    df = pd.DataFrame(data)
-    df = df[['id', 'symbol', 'name', 'current_price', 'market_cap', 'total_volume']]
-    df.columns = ['ID', 'Symbol', 'Name', 'Current_Price', 'Market_Cap', 'Total_Volume']
-    return df
+    try:
+        if not data:
+            raise ValueError("No data to transform!")
+        
+        df = pd.DataFrame(data)
+        df = df[['id', 'symbol', 'name', 'current_price', 'market_cap', 'total_volume']]
+        df.columns = ['ID', 'Symbol', 'Name', 'Current_Price', 'Market_Cap', 'Total_Volume']
+        return df
+    except ValueError as e:
+        print(f"Data error: {e}")
+        return pd.DataFrame()  # Return an empty dataframe
 
 def load_data(df):
     conn = sqlite3.connect('crypto_data.db')
