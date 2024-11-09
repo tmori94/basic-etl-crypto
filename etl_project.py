@@ -46,19 +46,28 @@ def load_data(df):
         print(f"Error found in the data to be loaded: {e}")
 
 def verify_data():
-    # Connecting to the DB
-    conn = sqlite3.connect('crypto_data.db')
-    query = 'SELECT * FROM cryptos LIMIT 5'  # Selecting only the first 5 rows
-    result = pd.read_sql(query, conn)
-    conn.close()
-    # Show the first 5 records
-    print(result)
+    try:
+        # Connecting to the DB
+        conn = sqlite3.connect('crypto_data.db')
+        query = 'SELECT * FROM cryptos LIMIT 5' # Select first 5 rows of data
+        result = pd.read_sql(query, conn)
+        conn.close() # Close DB connection
+        print(result)
+    except sqlite3.Error as e:
+        print(f"Error reading the data: {e}")
+
 
 def etl_process():
     data = extract_data()
-    df = transform_data(data)
-    load_data(df)
-    print("ETL process completed. Data is loaded into 'crypto_data.db'.")
-    verify_data()
+    if data:  # Only if data has been extracted correctly
+        df = transform_data(data)
+        if not df.empty:  # Only if data has been transformed correctly
+            load_data(df)
+            print("ETL process completed. Data is loaded into 'crypto_data.db'.")
+            verify_data()
+        else:
+            print("No data to upload.")
+    else:
+        print("It was not possible to extract data.")
 
 etl_process()
