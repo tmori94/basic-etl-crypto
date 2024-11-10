@@ -76,11 +76,11 @@ def etl_process():
         df = transform_data(data)
         if not df.empty:  # Only if data has been transformed correctly
             load_data(df)
-            print("ETL process completed. Data is loaded into 'crypto_data.db'.")
+            logging.info("ETL process completed. Data is loaded into 'crypto_data.db'.")
             verify_data()
         else:
-            print("No data to upload.")
+            logging.info("No data to upload.")
     else:
-        print("It was not possible to extract data.")
+        logging.info("It was not possible to extract data.")
 
 etl_process()
