@@ -1,9 +1,8 @@
-import requests
+import logging
 import pandas as pd
 import sqlite3
-import logging
 
-# Configure logging
+# Configure the logging
 logging.basicConfig(
     filename='etl_project.log',   # Log file name
     level=logging.DEBUG,          # Minimum logging level (you can change it based on your needs)
@@ -11,76 +10,60 @@ logging.basicConfig(
     datefmt='%Y-%m-%d %H:%M:%S'    # Timestamp format
 )
 
-# Start logging file
-logging.info("ETL process started.")
+def validate_data_types(df):
+    """
+    Validate that the data types of each column are as expected.
+    Expected data types: 
+        'ID', 'Symbol', 'Name' -> str
+        'Current_Price', 'Market_Cap', 'Total_Volume' -> float or int
+    """
+    expected_dtypes = {
+        'ID': str,
+        'Symbol': str,
+        'Name': str,
+        'Current_Price': (float, int),
+        'Market_Cap': (float, int),
+        'Total_Volume': (float, int)
+    }
 
+    # Iterate through expected columns and check if their data types match
+    for column, expected_type in expected_dtypes.items():
+        if not df[column].apply(lambda x: isinstance(x, expected_type)).all():
+            logging.error(f"Invalid data type in column '{column}'. Expected {expected_type}.")
+            return False  # Return False if any data type is incorrect
 
-def extract_data():
-    try:
-        url = 'https://api.coingecko.com/api/v3/coins/markets'
-        params = {'vs_currency': 'usd', 'order': 'market_cap_desc', 'per_page': 10, 'page': 1}
-        response = requests.get(url, params=params)
-        
-        response.raise_for_status()  # Raises exception if the response is not 200
-        
-        data = response.json()
-        logging.info("Data extracted successfully from API.")
-        return data
-    except requests.exceptions.RequestException as e:
-        logging.error(f"Error during the API request: {e}")
-        return []
+    return True  # Return True if all data types are correct
+
+def validate_value_ranges(df):
+    """
+    Validate the values in 'Current_Price', 'Market_Cap', and 'Total_Volume' columns.
+    Ensure that the values are positive (i.e., greater than 0).
+    """
+    # Check if any of the numeric values in these columns are not greater than 0
+    if not df[(df['Current_Price'] > 0) & (df['Market_Cap'] > 0)].empty:
+        logging.error("Invalid values detected in 'Current_Price' or 'Market_Cap'. Values must be positive.")
+        return False  # Return False if there are invalid values
+    return True  # Return True if all values are valid
 
 def transform_data(data):
+    """
+    Transform the raw data into a pandas DataFrame and perform basic validation checks.
+    The data is expected to have specific columns, which will be validated.
+    """
     try:
         if not data:
-            raise ValueError("No data to transform!")
+            raise ValueError("No data to transform!")  # Raise an error if no data is provided
+
+        df = pd.DataFrame(data)  # Convert the data into a DataFrame
+
+        # Validate for missing or null values in required columns
+        required_columns = ['id', 'symbol', 'name', 'current_price', 'market_cap', 'total_volume']
+        missing_columns = [col for col in required_columns if col not in df.columns or df[col].isnull().any()]
         
-        df = pd.DataFrame(data)
-        df = df[['id', 'symbol', 'name', 'current_price', 'market_cap', 'total_volume']]
-        df.columns = ['ID', 'Symbol', 'Name', 'Current_Price', 'Market_Cap', 'Total_Volume']
-        logging.info("Data transformation successful.")
-        return df
-    except ValueError as e:
-        logging.error(f"Data error: {e}")
-        return pd.DataFrame()
+        if missing_columns:
+            # Log error if there are missing or null values in required columns
+            logging.error(f"Missing or null values found in columns: {', '.join(missing_columns)}")
+            raise ValueError(f"Missing or null values found in columns: {', '.join(missing_columns)}")
 
-def load_data(df):
-    try:
-        if df.empty:
-            raise ValueError("No data to load in the database.")
-        
-        conn = sqlite3.connect('crypto_data.db')
-        df.to_sql('cryptos', conn, if_exists='replace', index=False)
-        conn.close()
-        logging.info("Data loaded into database successfully.")
-    except sqlite3.Error as e:
-        logging.error(f"Error during the upload of data in the DB: {e}")
-    except ValueError as e:
-        logging.error(f"Error found in the data to be loaded: {e}")
-
-def verify_data():
-    try:
-        conn = sqlite3.connect('crypto_data.db')
-        query = 'SELECT * FROM cryptos LIMIT 5'
-        result = pd.read_sql(query, conn)
-        conn.close()
-        logging.info("Data verification successful.")
-        print(result)
-    except sqlite3.Error as e:
-        logging.error(f"Error reading the data: {e}")
-
-
-def etl_process():
-    data = extract_data()
-    if data:  # Only if data has been extracted correctly
-        df = transform_data(data)
-        if not df.empty:  # Only if data has been transformed correctly
-            load_data(df)
-            logging.info("ETL process completed. Data is loaded into 'crypto_data.db'.")
-            verify_data()
-        else:
-            logging.info("No data to upload.")
-    else:
-        logging.info("It was not possible to extract data.")
-
-etl_process()
+        df = df[required_columns]  # Select only the required columns
+        df.col
