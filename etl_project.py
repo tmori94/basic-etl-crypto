@@ -66,4 +66,92 @@ def transform_data(data):
             raise ValueError(f"Missing or null values found in columns: {', '.join(missing_columns)}")
 
         df = df[required_columns]  # Select only the required columns
-        df.col
+        df.columns = ['ID', 'Symbol', 'Name', 'Current_Price', 'Market_Cap', 'Total_Volume']  # Rename columns
+
+        # Validate data types of the columns
+        if not validate_data_types(df):
+            raise ValueError("Data type validation failed.")  # Raise error if data types are incorrect
+
+        # Validate value ranges (e.g., ensuring positive numbers)
+        if not validate_value_ranges(df):
+            raise ValueError("Value range validation failed.")  # Raise error if values are invalid
+
+        logging.info("Data transformation successful.")  # Log successful transformation
+        return df  # Return the transformed DataFrame
+
+    except ValueError as e:
+        logging.error(f"Data error: {e}")  # Log error message
+        return pd.DataFrame()  # Return an empty DataFrame in case of error
+
+def extract_data():
+    """
+    Extract data from the CoinGecko API and return it as a list of dictionaries.
+    If an error occurs, it logs the error and returns an empty list.
+    """
+    try:
+        url = 'https://api.coingecko.com/api/v3/coins/markets'
+        params = {'vs_currency': 'usd', 'order': 'market_cap_desc', 'per_page': 10, 'page': 1}
+        response = requests.get(url, params=params)
+        
+        # Verify if the response status is OK (status code 200)
+        response.raise_for_status()  # Raises exception if the response is not 200
+        
+        data = response.json()  # Convert the response to JSON format
+        logging.info("Data extracted successfully from API.")
+        return data  # Return the extracted data
+
+    except requests.exceptions.RequestException as e:
+        logging.error(f"Error during the API request: {e}")  # Log error in case of exception
+        return []  # Return an empty list if an error occurs
+
+def load_data(df):
+    """
+    Load the transformed data into an SQLite database. If the DataFrame is empty, logs the error.
+    """
+    try:
+        if df.empty:
+            raise ValueError("No data to load in the database.")  # Raise error if DataFrame is empty
+        
+        conn = sqlite3.connect('crypto_data.db')  # Connect to the SQLite database
+        df.to_sql('cryptos', conn, if_exists='replace', index=False)  # Load data into the 'cryptos' table
+        conn.close()  # Close the connection after loading the data
+        logging.info("Data loaded into database successfully.")
+
+    except sqlite3.Error as e:
+        logging.error(f"Error during the upload of data in the DB: {e}")  # Log DB-related error
+    except ValueError as e:
+        logging.error(f"Error found in the data to be loaded: {e}")  # Log error if the data is invalid
+
+def verify_data():
+    """
+    Verify that data has been successfully loaded into the database by querying the first 5 rows.
+    """
+    try:
+        conn = sqlite3.connect('crypto_data.db')  # Connect to the SQLite database
+        query = 'SELECT * FROM cryptos LIMIT 5'  # SQL query to fetch the first 5 rows
+        result = pd.read_sql(query, conn)  # Execute the query and store the result in a DataFrame
+        conn.close()  # Close the database connection
+        logging.info("Data verification successful.")  # Log verification success
+        print(result)  # Print the result to the console
+
+    except sqlite3.Error as e:
+        logging.error(f"Error reading the data: {e}")  # Log error if there's a problem with reading data
+
+def etl_process():
+    """
+    Run the entire ETL process: Extract data, transform it, load it into the database, and verify.
+    """
+    data = extract_data()  # Extract data from the API
+    if data:  # Only proceed if data was successfully extracted
+        df = transform_data(data)  # Transform the data
+        if not df.empty:  # Only load data if it's valid (not empty)
+            load_data(df)  # Load the transformed data into the database
+            logging.info("ETL process completed. Data is loaded into 'crypto_data.db'.")
+            verify_data()  # Verify that the data was loaded correctly
+        else:
+            logging.warning("No data to upload.")  # Log if there was no valid data to upload
+    else:
+        logging.error("It was not possible to extract data.")  # Log if the data extraction failed
+
+# Start the ETL process
+etl_process()
